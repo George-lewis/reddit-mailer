@@ -10,11 +10,34 @@ import (
 	"github.com/turnage/graw/reddit"
 )
 
-var nomailIcon []byte
-var mailIcon []byte
+var (
+	noMailIcon []byte
+	mailIcon   []byte
+	mailCh     chan bool
+	exitCh     chan bool
+)
 
-var mailCh chan bool
-var exitCh chan int8
+func init() {
+	pkger.Include("/assets")
+	pkger.Include("/agent.txt")
+
+	var err error
+
+	mailIcon, err = readFile("/assets/mail.ico")
+	if err != nil {
+		panic(err)
+	}
+
+	noMailIcon, err = readFile("/assets/nomail.ico")
+	if err != nil {
+		panic(err)
+	}
+
+	color.Green("Images loaded")
+
+	mailCh = make(chan bool)
+	exitCh = make(chan bool)
+}
 
 func readFile(name string) ([]byte, error) {
 	f, err := pkger.Open(name)
@@ -24,72 +47,38 @@ func readFile(name string) ([]byte, error) {
 	}
 
 	data, err := ioutil.ReadAll(f)
-
 	if err != nil {
 		return nil, err
 	}
 
 	return data, nil
-
 }
 
 func checkMail(bot reddit.Bot) (bool, error) {
-
 	h, err := bot.ListingWithParams("/message/unread", map[string]string{"limit": "1"})
-
 	if err != nil {
 		return false, err
 	}
 
 	return len(h.Messages) > 0, nil
-
 }
 
 func main() {
-
-	pkger.Include("/assets")
-
-	var err error
-
 	color.Green("Startup")
-
-	mailCh = make(chan bool)
-	exitCh = make(chan int8)
-
-	mailIcon, err = readFile("/assets/mail.ico")
-
-	if err != nil {
-		panic(err)
-	}
-
-	nomailIcon, err = readFile("/assets/nomail.ico")
-
-	if err != nil {
-		panic(err)
-	}
-
-	color.Green("Images loaded")
 
 	go systray.Run(onReady, onExit)
 
-	var bot reddit.Bot
-
-	bot, err = reddit.NewBotFromAgentFile("agent.txt", 0)
-
+	bot, err := reddit.NewBotFromAgentFile("/agent.txt", 0)
 	if err != nil {
 		panic(err)
 	}
 
 	color.Green("Reddit API initialized")
 
-	var mail bool
-
-	mail, err = checkMail(bot)
-
+	mail, err := checkMail(bot)
 	if err != nil {
 		panic(err)
 	}
-
 	mailCh <- mail
 
 	timer := time.NewTicker(15 * time.Second)
@@ -103,15 +92,14 @@ func main() {
 			}
 			mailCh <- mail
 		case <-exitCh:
+			timer.Stop()
 			return
 		}
 	}
-
 }
 
 func onReady() {
-
-	systray.SetIcon(nomailIcon)
+	systray.SetIcon(noMailIcon)
 	systray.SetTitle("Reddit Mailer")
 
 	quit := systray.AddMenuItem("Quit", "Stop Reddit Mailer")
@@ -126,13 +114,12 @@ func onReady() {
 			if b {
 				systray.SetIcon(mailIcon)
 			} else {
-				systray.SetIcon(nomailIcon)
+				systray.SetIcon(noMailIcon)
 			}
 		}
 	}
-
 }
 
 func onExit() {
-	exitCh <- 1
+	exitCh <- true
 }
