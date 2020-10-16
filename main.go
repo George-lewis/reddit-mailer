@@ -2,11 +2,11 @@ package main
 
 import (
 	"io/ioutil"
-	"os"
 	"time"
 
 	"github.com/fatih/color"
 	"github.com/getlantern/systray"
+	"github.com/markbates/pkger"
 	"github.com/turnage/graw/reddit"
 )
 
@@ -17,7 +17,7 @@ var mailCh chan bool
 var exitCh chan int8
 
 func readFile(name string) ([]byte, error) {
-	f, err := os.Open(name)
+	f, err := pkger.Open(name)
 
 	if err != nil {
 		return nil, err
@@ -47,6 +47,8 @@ func checkMail(bot reddit.Bot) (bool, error) {
 
 func main() {
 
+	pkger.Include("/assets")
+
 	var err error
 
 	color.Green("Startup")
@@ -54,13 +56,13 @@ func main() {
 	mailCh = make(chan bool)
 	exitCh = make(chan int8)
 
-	mailIcon, err = readFile("mail.ico")
+	mailIcon, err = readFile("/assets/mail.ico")
 
 	if err != nil {
 		panic(err)
 	}
 
-	nomailIcon, err = readFile("nomail.ico")
+	nomailIcon, err = readFile("/assets/nomail.ico")
 
 	if err != nil {
 		panic(err)
